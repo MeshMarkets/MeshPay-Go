@@ -52,12 +52,7 @@ func (r *ChargesResource) Get(chargeID string) (map[string]interface{}, error) {
 }
 
 // Create creates a charge.
-func (r *ChargesResource) Create(buyerID, sellerAccountID string, amount float64, idempotencyKey string) (map[string]interface{}, error) {
-	body := map[string]interface{}{
-		"buyer_id":            buyerID,
-		"seller_account_id":  sellerAccountID,
-		"amount":              amount,
-	}
+func (r *ChargesResource) Create(body map[string]interface{}, idempotencyKey string) (map[string]interface{}, error) {
 	b, err := r.client.do("POST", "/charges", body, idempotencyKey)
 	if err != nil {
 		return nil, err
@@ -69,10 +64,9 @@ func (r *ChargesResource) Create(buyerID, sellerAccountID string, amount float64
 	return out, nil
 }
 
-// Fund funds a charge (entity_secret_ciphertext required).
-func (r *ChargesResource) Fund(chargeID, entitySecretCiphertext, idempotencyKey string) (map[string]interface{}, error) {
-	b, err := r.client.do("POST", fmt.Sprintf("/charges/%s/fund", chargeID),
-		map[string]string{"entity_secret_ciphertext": entitySecretCiphertext}, idempotencyKey)
+// Fund funds a charge.
+func (r *ChargesResource) Fund(chargeID string, body map[string]interface{}, idempotencyKey string) (map[string]interface{}, error) {
+	b, err := r.client.do("POST", fmt.Sprintf("/charges/%s/fund", chargeID), body, idempotencyKey)
 	if err != nil {
 		return nil, err
 	}
@@ -83,11 +77,23 @@ func (r *ChargesResource) Fund(chargeID, entitySecretCiphertext, idempotencyKey 
 	return out, nil
 }
 
-// Refund refunds a charge (amount optional for partial).
-func (r *ChargesResource) Refund(chargeID, idempotencyKey string, amount *float64) (map[string]interface{}, error) {
-	body := map[string]interface{}{}
-	if amount != nil {
-		body["amount"] = *amount
+// Cancel cancels a pending charge.
+func (r *ChargesResource) Cancel(chargeID, idempotencyKey string) (map[string]interface{}, error) {
+	b, err := r.client.do("POST", fmt.Sprintf("/charges/%s/cancel", chargeID), map[string]interface{}{}, idempotencyKey)
+	if err != nil {
+		return nil, err
+	}
+	var out map[string]interface{}
+	if err := json.Unmarshal(b, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Refund refunds a charge.
+func (r *ChargesResource) Refund(chargeID, idempotencyKey string, body map[string]interface{}) (map[string]interface{}, error) {
+	if body == nil {
+		body = map[string]interface{}{}
 	}
 	b, err := r.client.do("POST", fmt.Sprintf("/charges/%s/refund", chargeID), body, idempotencyKey)
 	if err != nil {

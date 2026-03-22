@@ -6,25 +6,47 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 )
+
+const defaultBaseURL = "https://YOUR_PROJECT_REF.supabase.co/functions/v1/api"
 
 // Client for the Mesh Pay API.
 type Client struct {
-	baseURL string
-	apiKey  string
-	client  *http.Client
+	baseURL      string
+	apiKey       string
+	client       *http.Client
+	useXApiKey   bool
 }
 
-// New creates a new Client. Pass empty baseURL to use http://localhost:3000.
+// New creates a new Client.
 func New(apiKey, baseURL string) *Client {
 	if baseURL == "" {
-		baseURL = "http://localhost:3000"
+		baseURL = defaultBaseURL
 	}
-	return &Client{baseURL: baseURL, apiKey: apiKey, client: &http.Client{}}
+	return &Client{
+		baseURL: strings.TrimRight(baseURL, "/"),
+		apiKey:  apiKey,
+		client:  &http.Client{},
+	}
 }
 
-// do performs an HTTP request and returns the body. Returns an error on 4xx/5xx.
+// NewWithOptions creates a client with optional X-Api-Key header instead of Bearer.
+func NewWithOptions(apiKey, baseURL string, useXApiKey bool) *Client {
+	c := New(apiKey, baseURL)
+	c.useXApiKey = useXApiKey
+	return c
+}
+
 func (c *Client) do(method, path string, body interface{}, idempotencyKey string) ([]byte, error) {
+	return c.doInternal(method, path, body, idempotencyKey, false)
+}
+
+func (c *Client) doNoAuth(method, path string) ([]byte, error) {
+	return c.doInternal(method, path, nil, "", true)
+}
+
+func (c *Client) doInternal(method, path string, body interface{}, idempotencyKey string, skipAuth bool) ([]byte, error) {
 	var r io.Reader
 	if body != nil {
 		b, err := json.Marshal(body)
@@ -37,8 +59,16 @@ func (c *Client) do(method, path string, body interface{}, idempotencyKey string
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.apiKey)
-	req.Header.Set("Content-Type", "application/json")
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	if !skipAuth {
+		if c.useXApiKey {
+			req.Header.Set("X-Api-Key", c.apiKey)
+		} else {
+			req.Header.Set("Authorization", "Bearer "+c.apiKey)
+		}
+	}
 	if idempotencyKey != "" {
 		req.Header.Set("Idempotency-Key", idempotencyKey)
 	}
@@ -53,6 +83,9 @@ func (c *Client) do(method, path string, body interface{}, idempotencyKey string
 	}
 	if resp.StatusCode >= 400 {
 		return nil, fmt.Errorf("meshpay api error %d: %s", resp.StatusCode, string(b))
+	}
+	if resp.StatusCode == 204 || len(b) == 0 {
+		return nil, nil
 	}
 	return b, nil
 }
@@ -80,16 +113,6 @@ func (c *Client) Charges() *ChargesResource {
 // Escrows returns the escrows resource.
 func (c *Client) Escrows() *EscrowsResource {
 	return &EscrowsResource{client: c}
-}
-
-// Payouts returns the payouts resource.
-func (c *Client) Payouts() *PayoutsResource {
-	return &PayoutsResource{client: c}
-}
-
-// APIKeys returns the API keys resource.
-func (c *Client) APIKeys() *APIKeysResource {
-	return &APIKeysResource{client: c}
 }
 
 // WebhookEndpoints returns the webhook endpoints resource.
