@@ -67,6 +67,54 @@ func (r *EscrowsResource) Release(escrowID, idempotencyKey string) (map[string]i
 	return out, nil
 }
 
+// CreateContribution adds a contribution to a pooled escrow.
+func (r *EscrowsResource) CreateContribution(escrowID string, body map[string]interface{}, idempotencyKey string) (map[string]interface{}, error) {
+	b, err := r.client.do("POST", fmt.Sprintf("/escrows/%s/contributions", escrowID), body, idempotencyKey)
+	if err != nil {
+		return nil, err
+	}
+	if len(b) == 0 {
+		return map[string]interface{}{}, nil
+	}
+	var out map[string]interface{}
+	if err := json.Unmarshal(b, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// SetPayee assigns the payee for a pooled escrow.
+func (r *EscrowsResource) SetPayee(escrowID string, body map[string]interface{}, idempotencyKey string) (map[string]interface{}, error) {
+	b, err := r.client.do("POST", fmt.Sprintf("/escrows/%s/set-payee", escrowID), body, idempotencyKey)
+	if err != nil {
+		return nil, err
+	}
+	if len(b) == 0 {
+		return map[string]interface{}{}, nil
+	}
+	var out map[string]interface{}
+	if err := json.Unmarshal(b, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// CancelPooledEscrow cancels a pending pooled escrow and refunds contributors.
+func (r *EscrowsResource) CancelPooledEscrow(escrowID, idempotencyKey string) (map[string]interface{}, error) {
+	b, err := r.client.do("POST", fmt.Sprintf("/escrows/%s/cancel-pool", escrowID), map[string]interface{}{}, idempotencyKey)
+	if err != nil {
+		return nil, err
+	}
+	if len(b) == 0 {
+		return map[string]interface{}{}, nil
+	}
+	var out map[string]interface{}
+	if err := json.Unmarshal(b, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // OpenDispute records an on-chain dispute.
 func (r *EscrowsResource) OpenDispute(escrowID, txHash string) (map[string]interface{}, error) {
 	b, err := r.client.do("POST", fmt.Sprintf("/escrows/%s/open-dispute", escrowID), map[string]string{"tx_hash": txHash}, "")

@@ -64,6 +64,19 @@ func (r *ChargesResource) Create(body map[string]interface{}, idempotencyKey str
 	return out, nil
 }
 
+// CreatePooledCharge creates a pooled multi-contributor charge (server-wallet escrow only).
+func (r *ChargesResource) CreatePooledCharge(body map[string]interface{}, idempotencyKey string) (map[string]interface{}, error) {
+	b, err := r.client.do("POST", "/pooled-charges", body, idempotencyKey)
+	if err != nil {
+		return nil, err
+	}
+	var out map[string]interface{}
+	if err := json.Unmarshal(b, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // Fund funds a charge.
 func (r *ChargesResource) Fund(chargeID string, body map[string]interface{}, idempotencyKey string) (map[string]interface{}, error) {
 	b, err := r.client.do("POST", fmt.Sprintf("/charges/%s/fund", chargeID), body, idempotencyKey)
